@@ -1,7 +1,7 @@
 % @Author: Your name
 % @Date:   2022-03-25 22:18:55
 % @Last Modified by:   WU Zihan
-% @Last Modified time: 2022-06-17 18:30:16
+% @Last Modified time: 2022-06-18 23:01:25
 \documentclass[10pt]{article}
 
 
@@ -44,65 +44,48 @@
     \SetCommentSty{text}
     \SetKwInput{KwInput}{Input}                % Set the Input
     \SetKwInput{KwOutput}{Output}              % set the Output
-    \KwIn {Blockchain graph $G_0$}
+    \KwIn {Blockchain graph $G_0$, genesis block $B_0$}
     \KwOut{Main View $v_0$}
-    \caption{Handling Inconsistent Blockchain Views ($G_0$)}
+    \caption{Handling Inconsistent Blockchain Views ($G_0, B_0$)}
 
-    $V_0 \gets \Call{FindViews}{G_0}$ \tcp*[h]{All different views}\\
-    \ForEach { $v \in V_0$}{
-        \ForEach{$v' \in \Call{Subview}{v}$} 
-        % \Call{FindSubView}{v}
-        {
-            $W(v') \gets 0$ \\  \tcp*[h]{Initialize mining power of each subview}\\
-        }
-        % $W(v') \gets 0$ \\  \tcp*[h]{Initialize mining power of each view}\\
-    }
+    % $S_0 \gets \Call{FindSubgroups}{G_0}$ \\
+    $S_0 \gets \varnothing$ \\
     \ForEach { $B \in G$}{
-        \ForEach { $v \in V_0$}{
-            \ForEach{$v' \in \Call{Subview}{v}$}{
-                \If{$B \in v$}{$W(v') \gets W(v')+ \Call{Miningpower}{B}$}
-            }
-        }        \tcp*[h]{Compute mining power invested in the view}\\
+        $s \gets \Call{BlocktoSubgroup}{B}$ \\
+        % \ForEach{$B' \in s$}{
+            \eIf{$B' \in S_0 $}{s}{d}
+        % }
     }
 
-    \ForEach{$v \in V_0$}
-    {
-        \uIf{ $\Call{Subview}{v} = \varnothing$}
-        {         \KwRet $v$ \\
+    \tcp*[h]{Find all subgroups} \\
+    % $V_0 \gets \Call{BuildViews}{V_0,G_0}$ \tcp*[h]{All different subviews} \\
+    \ForEach { $B \in G$}{
+        \ForEach { $s \in S_0$}{
+            $W(s) \gets 0$ \\
+            \ForEach{$v \in \Call{SubviewsBeginwith}{s}$}{
+                \If{$B \in v$}{
+                    $W(s) \gets W(s)+ \Call{Miningpower}{B}$ \\
+                    \KwSty{continue}
+                }
+            }
+        }
+    }
+
+    $s \gets \Call{BlocktoSubgroup}{B_0}$
+
+    % \ForEach{$s' \in \Call{ChildGroup}{s}$}
+    % {
+        \uIf{ $\Call{ChildSubroups}{s} = \varnothing$}
+        {         \KwRet $s$ \\
         }
         \Else
         {
-        Update $v \gets \mathop{\arg\max}\limits_{v'\in \Call{subview}{v} } W(v')$\\
-        Go to line 17
+            Update $s \gets \mathop{\arg\max}\limits_{s'\in \Call{ChildSubroups}{s} } W(s')$\\
+            Go to line $15$
         }
-    }
-    \KwRet $v_0$
-
-\end{algorithm}
-
-
-\begin{algorithm}\label{findview}
-    \SetKwInput{KwInput}{Input}                % Set the Input
-    \SetKwInput{KwOutput}{Output}              % set the Output
-    \KwIn {Graph $G$}
-    \KwOut{View Set $V_s$}
-    \SetCommentSty{text}
-    \caption{FindViews($G$)}
-    $V_s \gets \varnothing$\\
-    $leaf\_group \gets \Call{GroupLeaf}{G}$ \\
-    \ForEach { $\mathcal{S} \in leaf\_group $}{
-        $u,v \gets \varnothing$ \\
-        $v, v.subview \gets \Call{AddPre}{\mathcal{S},G,v,U}$ \\
-        $V_s \gets V_s \cup \{v\}$\\
-    } 
-    % \tcp*[h]{$V_s$ is a set containing all views} \\
-
-
-
-
-
-
-    \SetKwFunction{FMain}{$\Call{Addpre}{\mathcal{S}, G, v, U}$}
+    % }
+    % \KwRet $v_0$
+    \SetKwFunction{FMain}{$\Call{FindSubgroups}{G_0}$}
     \SetKwFunction{FSum}{Sum}
     \SetKwFunction{FSub}{Sub}
     \SetKwProg{Fn}{Function}{:}{}
@@ -114,12 +97,53 @@
         }
         \Else
         {
-            
+
             $\Call{Addpre}{\mathcal{S}.predecessors,G,v,U}$\\
-            
+
         }
     }
 \end{algorithm}
+
+
+% \begin{algorithm}\label{findview}
+%     \SetKwInput{KwInput}{Input}                % Set the Input
+%     \SetKwInput{KwOutput}{Output}              % set the Output
+%     \KwIn {Graph $G$}
+%     \KwOut{View Set $V_s$}
+%     \SetCommentSty{text}
+%     \caption{FindViews($G$)}
+%     $V_s \gets \varnothing$\\
+%     $leaf\_group \gets \Call{GroupLeaf}{G}$ \\
+%     \ForEach { $\mathcal{S} \in leaf\_group $}{
+%         $u,v \gets \varnothing$ \\
+%         $v, v.subview \gets \Call{AddPre}{\mathcal{S},G,v,U}$ \\
+%         $V_s \gets V_s \cup \{v\}$\\
+%     }
+%     % \tcp*[h]{$V_s$ is a set containing all views} \\
+
+
+
+
+
+
+%     \SetKwFunction{FMain}{$\Call{Addpre}{\mathcal{S}, G, v, U}$}
+%     \SetKwFunction{FSum}{Sum}
+%     \SetKwFunction{FSub}{Sub}
+%     \SetKwProg{Fn}{Function}{:}{}
+%     \Fn{\FMain }{
+%         $v \gets v \cup \mathcal{S}$ \\
+%         $U \gets U \cup \{v\}$ \\
+%         \uIf{ $\mathcal{S}$ is genesis }
+%         {         \KwRet{$v,U$}  \\
+%         }
+%         \Else
+%         {
+
+%             $\Call{Addpre}{\mathcal{S}.predecessors,G,v,U}$\\
+
+%         }
+%     }
+% \end{algorithm}
 
 
 
