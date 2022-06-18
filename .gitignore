@@ -1,3 +1,4 @@
 *.aux
 *.xdv
 *.log
+.DS_Store
