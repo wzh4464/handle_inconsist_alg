@@ -1,7 +1,7 @@
 % @Author: WU Zihan
 % @Date:   2022-03-25 22:18:55
 % @Last Modified by:   WU Zihan
-% @Last Modified time: 2022-06-19 01:06:13
+% @Last Modified time: 2022-08-09 17:51:01
 \documentclass[10pt]{article}
 
 
@@ -50,7 +50,7 @@
 
     % $S_0 \gets \Call{FindSubgroups}{G_0}$ \\
     $S_0 \gets \varnothing$ \\
-    \ForEach { $B \in G$}{
+    \ForEach { $B \in G_0$}{
         $s \gets \Call{BlocktoSubgroup}{B}$ \\
         % \ForEach{$B' \in s$}{
         \eIf{$s \in S_0 $}{
@@ -65,9 +65,12 @@
 
     \tcp*[h]{\(S_0\) stands for a set containing all subgroups} \\
     % $V_0 \gets \Call{BuildViews}{V_0,G_0}$ \tcp*[h]{All different subviews} \\
-    \ForEach { $B \in G$}{
+    \ForEach { $s \in S_0$}{
+        $W(s) \gets 0$
+    }
+    \tcp*[h]{Initialize weights of each subgroup as $0$} \\
+    \ForEach { $B \in G_0$}{
         \ForEach { $s \in S_0$}{
-            $W(s) \gets 0$ \\
             \ForEach{$v \in \Call{SubviewsBeginwith}{s}$}{
                 \If{$B \in v$}{
                     $W(s) \gets W(s)+ \Call{Miningpower}{B}$ \\
@@ -110,7 +113,7 @@
         % $U \gets U \cup \{v\}$ \\
         \eIf{ \(\Call{ChildSubroups}{s} = \varnothing\) }
         {
-            \KwRet{$\{s\}$}  \\
+            \KwRet{$\{\{s\}\}$}  \\
         }
         {
             \ForEach{\(c\in\Call{ChildSubroups}{s}\)}{
@@ -133,7 +136,7 @@
             \ForEach{\(B' \in s'\)}{
                 \ForEach{\(B \in s\)}{
                     \If{$B'$.predecessor has $B$}{
-                        \(C \gets C \cup \{B'\}\)
+                        \(C \gets C \cup \{s'\}\)
                     }
                 }
             }
