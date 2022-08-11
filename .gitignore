@@ -1,4 +1,5 @@
 *.aux
 *.xdv
 *.log
+test.*
 .DS_Store

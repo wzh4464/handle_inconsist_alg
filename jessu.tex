@@ -1,7 +1,7 @@
 % @Author: WU Zihan
 % @Date:   2022-03-25 22:18:55
 % @Last Modified by:   WU Zihan
-% @Last Modified time: 2022-08-09 17:51:01
+% @Last Modified time: 2022-08-11 17:21:03
 \documentclass[10pt]{article}
 
 
@@ -38,6 +38,21 @@
 \usepackage{silence}
 \WarningsOff[latexfont]
 \renewcommand*\Call[2]{\textproc{#1}(#2)}
+
+\makeatletter
+\newenvironment{algoproc}
+  {\renewcommand{\algorithmcfname}{Function}%
+   \begin{algorithm}
+   \long\def\@caption##1[##2]##3{%
+     \par
+     \begingroup\@parboxrestore
+     \if@minipage\@setminipage\fi
+     \normalsize \@makecaption{\AlCapSty{\AlCapFnt\algorithmcfname}}{\ignorespaces ##3}%
+     \par\endgroup
+   }}
+  {\end{algorithm}}
+\makeatother
+
 \begin{document}
 
 \begin{algorithm}\label{prohand}
@@ -45,33 +60,30 @@
     \SetKwInput{KwInput}{Input}                % Set the Input
     \SetKwInput{KwOutput}{Output}              % set the Output
     \KwIn {Blockchain graph $G_0$, genesis block $B_0$}
-    \KwOut{Main View $v_0$}
+    \KwOut{Target close-sibling $s$}
     \caption{Handling Inconsistent Blockchain Views ($G_0, B_0$)}
-
-    % $S_0 \gets \Call{FindSubgroups}{G_0}$ \\
+    \tcp*[h]{Collecting all whole-siblings to a set \(S_0\)} \\
     $S_0 \gets \varnothing$ \\
     \ForEach { $B \in G_0$}{
-        $s \gets \Call{BlocktoSubgroup}{B}$ \\
+        $s \gets \Call{BlocktoWholeSibling}{B}$ \\
         % \ForEach{$B' \in s$}{
         \eIf{$s \in S_0 $}{
             \KwSty{continue}
         }{
             $S_0 \gets S_0 \cup \{s\}$ \\
-            % \tcp*[h]{begin connecting subgroups} \\
-            % \tcp*[h]{end connceting subgroups}
+
         }
         % }
     }
 
-    \tcp*[h]{\(S_0\) stands for a set containing all subgroups} \\
-    % $V_0 \gets \Call{BuildViews}{V_0,G_0}$ \tcp*[h]{All different subviews} \\
+    \tcp*[h]{Initialize weights of each whole-sibling as $0$} \\
     \ForEach { $s \in S_0$}{
         $W(s) \gets 0$
     }
-    \tcp*[h]{Initialize weights of each subgroup as $0$} \\
+    \tcp*[h]{Calculate weights of all whole-siblings} \\
     \ForEach { $B \in G_0$}{
         \ForEach { $s \in S_0$}{
-            \ForEach{$v \in \Call{SubviewsBeginwith}{s}$}{
+            \ForEach{$v \in \Call{SubviewsBeginWith}{s}$}{
                 \If{$B \in v$}{
                     $W(s) \gets W(s)+ \Call{Miningpower}{B}$ \\
                     \KwSty{break}
@@ -79,54 +91,63 @@
             }
         }
     }
-    \tcp*[h]{Calculate weights of all subgroups} \\
-    $s \gets \Call{BlocktoSubgroup}{B_0}$
+    \tcp*[h]{Find the target whole-sibling} \\
+    $s \gets \Call{BlocktoWholeSibling}{B_0}$
 
-    % \ForEach{$s' \in \Call{ChildGroup}{s}$}
-    % {
-    \uIf{ $\Call{ChildSubroups}{s} = \varnothing$ \label{alg:goto_childsubgroup}}
+    \uIf{ $\Call{ChildWholeSiblings}{s} = \varnothing$ \label{alg:goto_childsubgroup}}
     {
         \KwRet $s$ \\
     }
     \Else
     {
-        Update $s \gets \mathop{\arg\max}\limits_{s'\in \Call{ChildSubroups}{s} } W(s')$\\
+        Update $s \gets \mathop{\arg\max}\limits_{s'\in \Call{ChildWholeSiblings}{s} } W(s')$\\
         Go to line \ref{alg:goto_childsubgroup}
     }
-    % }
-    % \KwRet $v_0$
 \end{algorithm}
 
 
-\begin{algorithm}\label{Functions}
+\begin{algoproc}
     \SetCommentSty{text}
+    \SetAlgorithmName{Function}{List of functions}
+
     \tcp*[h]{Function to find all subviews that begin with $s$}\\
-    \SetKwFunction{FMain}{$\Call{SubviewsBeginwith}{s}$}
+    \SetKwFunction{FMain}{$\Call{SubviewsBeginWith}{s}$}
     \SetKwFunction{FSum}{Sum}
     \SetKwFunction{FSub}{Sub}
     \SetKwProg{Fn}{Function}{:}{\KwRet \(V\)}
+    \caption{Subviews Begin with}
+    % \label{FunctionSubviewBegin}
     \Fn{\FMain }{
         $V \gets \varnothing $ \\
         % \ForEach{\(c\in\Call{ChildSubroups}{s}\)}{
-        %     $V \gets V \cup \{s \cup \Call{SubviewsBeginwith}{c}\} $
+        %     $V \gets V \cup \{s \cup \Call{SubviewsBeginWith}{c}\} $
         % }
         % $U \gets U \cup \{v\}$ \\
-        \eIf{ \(\Call{ChildSubroups}{s} = \varnothing\) }
+        \eIf{ \(\Call{ChildWholeSiblings}{s} = \varnothing\) }
         {
-            \KwRet{$\{\{s\}\}$}  \\
+            \(v \gets \Call{WholeSiblingstoSubview}{s}\) \\
+            \(V \gets V.\Call{Append}{v}\) \\
+            \KwRet{$V$}  \\
         }
         {
-            \ForEach{\(c\in\Call{ChildSubroups}{s}\)}{
-                \ForEach{\(v \in \Call{SubviewsBeginwith}{c}\)}{
-                    \(V \gets V \cup \{\{s\} \cup v\}\) \\
-                    \tcp*[h]{\(V.\Call{Add}{v.\Call{Add}{s}}\)}
+            \ForEach{\(c\in\Call{ChildWholeSiblings}{s}\)}{
+                \ForEach{\(v \in \Call{SubviewsBeginWith}{c}\)}{
+                    % \(V \gets V \cup \{\{s\} \cup v\}\) \\
+                    \(V.\Call{Append}{v.\Call{Append}{s}}\)
                 }
-                % $V \gets V \cup \{s \cup \Call{SubviewsBeginwith}{c}\} $
+                % $V \gets V \cup \{s \cup \Call{SubviewsBeginWith}{c}\} $
             }
         }
     }
-    \tcp*[h]{Function to find child subgroups}\\
-    \SetKwFunction{FMain}{$\Call{ChildSubroups}{s}$}
+\end{algoproc}
+
+\begin{algoproc}
+    \SetCommentSty{text}
+    \SetAlgorithmName{Function}{}{List of functions}
+    \caption{Child Whole Siblings}
+    % \TitleOfAlgo{title}
+    \tcp*[h]{Function to find child whole siblings}\\
+    \SetKwFunction{FMain}{$\Call{ChildWholeSiblings}{s}$}
     \SetKwFunction{FSum}{Sum}
     \SetKwFunction{FSub}{Sub}
     \SetKwProg{Fn}{Function}{:}{\KwRet \(C\)}
@@ -135,14 +156,14 @@
         \ForEach{\(s' \in S_0\)}{
             \ForEach{\(B' \in s'\)}{
                 \ForEach{\(B \in s\)}{
-                    \If{$B'$.predecessor has $B$}{
-                        \(C \gets C \cup \{s'\}\)
+                    \If{$B \in B'$.predecessors}{
+                        \(C.\Call{Append}{s'}\)
                     }
                 }
             }
         }
     }
-\end{algorithm}
+\end{algoproc}
 
 
 
