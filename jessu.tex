@@ -1,7 +1,7 @@
 % @Author: WU Zihan
 % @Date:   2022-03-25 22:18:55
 % @Last Modified by:   WU Zihan
-% @Last Modified time: 2022-08-12 21:48:28
+% @Last Modified time: 2022-08-12 22:00:25
 \documentclass[10pt]{article}
 
 
@@ -60,13 +60,13 @@
 	\SetKwInput{KwInput}{Input}                % Set the Input
 	\SetKwInput{KwOutput}{Output}              % set the Output
 	\KwIn {Received Blockchain graph $G$}
-	\KwOut{authoritative blockchain $A_v$}
+	\KwOut{Authoritative view $A_v$}
 	\caption{Handling Inconsistent Blockchain Views ($G$)}
-	\tcp*[h]{Collecte all valid sibling groups to  \(S\)} \\
+	\tcp*[h]{Collect all valid sibling groups to  \(S\)} \\
 	$S \gets \varnothing$ \\
 	\ForEach { $B \in G$}{
-		$s \gets \Call{Siblings}{B}$ \\
-			$S \gets S \cup s$ 
+		$s \gets \Call{Sibling}{B}$ \\
+			$S.\Call{Append}{s}$ 
 	}
 	
 	\tcp*[h]{Initialize weights of each  sibling groups} \\
@@ -84,16 +84,18 @@
 			}
 		}
 	}
-	\tcp*[h]{Find the authoritative blockchain} \\
-	$s \gets \Call{Siblings}{B^0}$
-	\uIf{ $\Call{ ChildSiblingGroups}{s} = \varnothing$ \label{alg:goto_childsubgroup}}
+	\tcp*[h]{Find the authoritative view} \\
+	$s \gets \Call{Siblings}{B^0}$ \tcp*[h]{$B^0$ stands for genesis block}\\
+	$A_v \gets \varnothing$ \\
+	$A_v.\Call{Append}{s}$ \label{alg:goto_childsubgroup} \\
+	\uIf{ $\Call{ ChildSiblingGroups}{s} = \varnothing$ }
 	{
 		\KwRet $s$ \\
 	}
 	\Else
 	{
 		Update $s \gets \mathop{\arg\max}\limits_{s'\in \Call{ ChildSiblingGroups}{s} } W(s')$\\
-		$A_v=A_v\cup s$
+		% $A_v.\Call{Append}{s}$ \\
 		Go to line \ref{alg:goto_childsubgroup}
 	}
 \end{algorithm}
