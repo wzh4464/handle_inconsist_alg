@@ -1,7 +1,7 @@
 % @Author: WU Zihan
 % @Date:   2022-03-25 22:18:55
 % @Last Modified by:   WU Zihan
-% @Last Modified time: 2022-08-11 17:21:03
+% @Last Modified time: 2022-08-12 21:48:28
 \documentclass[10pt]{article}
 
 
@@ -56,115 +56,101 @@
 \begin{document}
 
 \begin{algorithm}\label{prohand}
-    \SetCommentSty{text}
-    \SetKwInput{KwInput}{Input}                % Set the Input
-    \SetKwInput{KwOutput}{Output}              % set the Output
-    \KwIn {Blockchain graph $G_0$, genesis block $B_0$}
-    \KwOut{Target close-sibling $s$}
-    \caption{Handling Inconsistent Blockchain Views ($G_0, B_0$)}
-    \tcp*[h]{Collecting all whole-siblings to a set \(S_0\)} \\
-    $S_0 \gets \varnothing$ \\
-    \ForEach { $B \in G_0$}{
-        $s \gets \Call{BlocktoWholeSibling}{B}$ \\
-        % \ForEach{$B' \in s$}{
-        \eIf{$s \in S_0 $}{
-            \KwSty{continue}
-        }{
-            $S_0 \gets S_0 \cup \{s\}$ \\
-
-        }
-        % }
-    }
-
-    \tcp*[h]{Initialize weights of each whole-sibling as $0$} \\
-    \ForEach { $s \in S_0$}{
-        $W(s) \gets 0$
-    }
-    \tcp*[h]{Calculate weights of all whole-siblings} \\
-    \ForEach { $B \in G_0$}{
-        \ForEach { $s \in S_0$}{
-            \ForEach{$v \in \Call{SubviewsBeginWith}{s}$}{
-                \If{$B \in v$}{
-                    $W(s) \gets W(s)+ \Call{Miningpower}{B}$ \\
-                    \KwSty{break}
-                }
-            }
-        }
-    }
-    \tcp*[h]{Find the target whole-sibling} \\
-    $s \gets \Call{BlocktoWholeSibling}{B_0}$
-
-    \uIf{ $\Call{ChildWholeSiblings}{s} = \varnothing$ \label{alg:goto_childsubgroup}}
-    {
-        \KwRet $s$ \\
-    }
-    \Else
-    {
-        Update $s \gets \mathop{\arg\max}\limits_{s'\in \Call{ChildWholeSiblings}{s} } W(s')$\\
-        Go to line \ref{alg:goto_childsubgroup}
-    }
+	\SetCommentSty{text}
+	\SetKwInput{KwInput}{Input}                % Set the Input
+	\SetKwInput{KwOutput}{Output}              % set the Output
+	\KwIn {Received Blockchain graph $G$}
+	\KwOut{authoritative blockchain $A_v$}
+	\caption{Handling Inconsistent Blockchain Views ($G$)}
+	\tcp*[h]{Collecte all valid sibling groups to  \(S\)} \\
+	$S \gets \varnothing$ \\
+	\ForEach { $B \in G$}{
+		$s \gets \Call{Siblings}{B}$ \\
+			$S \gets S \cup s$ 
+	}
+	
+	\tcp*[h]{Initialize weights of each  sibling groups} \\
+	\ForEach { $s \in S$}{
+		$W(s) \gets 0$
+	}
+	\tcp*[h]{Calculate weights of all  sibling groups} \\
+	\ForEach { $B \in G$}{
+		\ForEach { $s \in S$}{
+			\ForEach{$v \in \Call{SubviewsBeginWith}{s}$}{
+				\If{$B \in v$}{
+					$W(s) \gets W(s)+ \Call{Miningpower}{B}$ \\
+					\KwSty{break}
+				}
+			}
+		}
+	}
+	\tcp*[h]{Find the authoritative blockchain} \\
+	$s \gets \Call{Siblings}{B^0}$
+	\uIf{ $\Call{ ChildSiblingGroups}{s} = \varnothing$ \label{alg:goto_childsubgroup}}
+	{
+		\KwRet $s$ \\
+	}
+	\Else
+	{
+		Update $s \gets \mathop{\arg\max}\limits_{s'\in \Call{ ChildSiblingGroups}{s} } W(s')$\\
+		$A_v=A_v\cup s$
+		Go to line \ref{alg:goto_childsubgroup}
+	}
 \end{algorithm}
 
 
 \begin{algoproc}
-    \SetCommentSty{text}
-    \SetAlgorithmName{Function}{List of functions}
-
-    \tcp*[h]{Function to find all subviews that begin with $s$}\\
-    \SetKwFunction{FMain}{$\Call{SubviewsBeginWith}{s}$}
-    \SetKwFunction{FSum}{Sum}
-    \SetKwFunction{FSub}{Sub}
-    \SetKwProg{Fn}{Function}{:}{\KwRet \(V\)}
-    \caption{Subviews Begin with}
-    % \label{FunctionSubviewBegin}
-    \Fn{\FMain }{
-        $V \gets \varnothing $ \\
-        % \ForEach{\(c\in\Call{ChildSubroups}{s}\)}{
-        %     $V \gets V \cup \{s \cup \Call{SubviewsBeginWith}{c}\} $
-        % }
-        % $U \gets U \cup \{v\}$ \\
-        \eIf{ \(\Call{ChildWholeSiblings}{s} = \varnothing\) }
-        {
-            \(v \gets \Call{WholeSiblingstoSubview}{s}\) \\
-            \(V \gets V.\Call{Append}{v}\) \\
-            \KwRet{$V$}  \\
-        }
-        {
-            \ForEach{\(c\in\Call{ChildWholeSiblings}{s}\)}{
-                \ForEach{\(v \in \Call{SubviewsBeginWith}{c}\)}{
-                    % \(V \gets V \cup \{\{s\} \cup v\}\) \\
-                    \(V.\Call{Append}{v.\Call{Append}{s}}\)
-                }
-                % $V \gets V \cup \{s \cup \Call{SubviewsBeginWith}{c}\} $
-            }
-        }
-    }
+	\SetCommentSty{text}
+	\SetAlgorithmName{Function}{List of functions}
+	
+	\tcp*[h]{Function to find all subviews that begin with $s$}\\
+	\SetKwFunction{FMain}{$\Call{SubviewsBeginWith}{s}$}
+	\SetKwFunction{FSum}{Sum}
+	\SetKwFunction{FSub}{Sub}
+	\SetKwProg{Fn}{Function}{:}{\KwRet \(V\)}
+	\caption{Subviews Begin with}
+	\Fn{\FMain }{
+		$V \gets \varnothing $ \\
+		\eIf{ \(\Call{ ChildSiblingGroups}{s} = \varnothing\) }
+		{
+			\(v \gets \Call{ConstructSubview}{s}\) \\
+			\(V \gets V.\Call{Append}{v}\) \\
+			\KwRet{$V$}  \\
+		}
+		{
+			\ForEach{\(c\in\Call{ ChildSiblingGroups}{s}\)}{
+				\ForEach{\(v \in \Call{SubviewsBeginWith}{c}\)}{
+					\(V.\Call{Append}{v.\Call{Append}{s}}\)
+				}
+			}
+		}
+	}
 \end{algoproc}
 
 \begin{algoproc}
-    \SetCommentSty{text}
-    \SetAlgorithmName{Function}{}{List of functions}
-    \caption{Child Whole Siblings}
-    % \TitleOfAlgo{title}
-    \tcp*[h]{Function to find child whole siblings}\\
-    \SetKwFunction{FMain}{$\Call{ChildWholeSiblings}{s}$}
-    \SetKwFunction{FSum}{Sum}
-    \SetKwFunction{FSub}{Sub}
-    \SetKwProg{Fn}{Function}{:}{\KwRet \(C\)}
-    \Fn{\FMain }{
-        $C \gets \varnothing $ \\
-        \ForEach{\(s' \in S_0\)}{
-            \ForEach{\(B' \in s'\)}{
-                \ForEach{\(B \in s\)}{
-                    \If{$B \in B'$.predecessors}{
-                        \(C.\Call{Append}{s'}\)
-                    }
-                }
-            }
-        }
-    }
+	\SetCommentSty{text}
+	\SetAlgorithmName{Function}{}{List of functions}
+	\caption{Child Sibling Groups}
+	% \TitleOfAlgo{title}
+	\tcp*[h]{Function to find child   siblings}\\
+	\SetKwFunction{FMain}{$\Call{ ChildSiblingGroups}{s}$}
+	\SetKwFunction{FSum}{Sum}
+	\SetKwFunction{FSub}{Sub}
+	\SetKwProg{Fn}{Function}{:}{\KwRet \(C\)}
+	\Fn{\FMain }{
+		$C \gets \varnothing $ \\
+		\ForEach{\(s' \in S\)}{
+			\ForEach{\(B' \in s'\)}{
+				\ForEach{\(B \in s\)}{
+					\If{$B \in B'$.predecessors}{
+						\(C.\Call{Append}{s'}\)
+					}
+				}
+			}
+		}
+	}
 \end{algoproc}
-
+ 
 
 
 \end{document}
