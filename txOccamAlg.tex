@@ -1,0 +1,316 @@
+\documentclass[10pt,journal,compsoc]{IEEEtran}
+ 
+\usepackage[nocompress]{cite}
+\usepackage{cite}
+\usepackage{amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{subfigure}
+\usepackage{booktabs}
+\usepackage{enumerate}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{subfigure}
+\usepackage{threeparttable}
+\usepackage{verbatim}
+\usepackage{amsthm,amssymb}
+\usepackage{mathrsfs}
+\usepackage[procnumbered,linesnumbered,ruled]{algorithm2e}
+\usepackage{algpseudocode}
+
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Definition}
+\newtheorem{proposition}{Proposition}
+\usepackage{lmodern}
+\usepackage{silence}
+\WarningsOff[latexfont]
+\renewcommand*\Call[2]{\textproc{#1}(#2)}
+
+\makeatletter
+\newenvironment{algoproc}
+{\renewcommand{\algorithmcfname}{Function}%
+	\begin{algorithm}
+		\long\def\@caption##1[##2]##3{%
+			\par
+			\begingroup\@parboxrestore
+			\if@minipage\@setminipage\fi
+			\normalsize \@makecaption{\AlCapSty{\AlCapFnt\algorithmcfname}}{\ignorespaces ##3}%
+			\par\endgroup
+	}}
+	{\end{algorithm}}
+\makeatother
+
+ 
+\begin{document}
+	
+	
+	\section{Implementation of the Adaptive Scaling Blockchain with Deduplication of Transactions} \label{implementation}
+	\subsection{Initializations}
+	The blockchain is initialized after the genesis block is released. Each participating node maintains a local transaction pool and a local blockchain. When a node participates in the system, it first establishes a peer-to-peer connection with existing nodes in the network. Then, the node requests the latest blockchain from its peer nodes and updates its local blockchain based on the blockchain received. All participating nodes listen for new blocks in the network and validate them. Valid blocks are appended to their local blockchain and broadcast to their peer nodes. 
+	
+	The local transaction pool caches transactions that nodes have received and validated but have not yet appended to the blockchain. When a node receives a transaction, it first determines whether it has ever processed the transaction based on the TID. If the node has already processed the transaction, the transaction will be discarded. If not processed, the node first validates the transaction. Valid transactions are added to the local transaction pool and broadcast to its peer nodes and invalid transactions are discarded. Transactions already on the blockchain will be removed from the transaction pool. Nodes delete transactions based on transaction fees or other criteria when the transaction pool reaches the maximum size.
+	
+	Each participating node updates the local blockchain through a mining thread and a receiving thread. The mining thread keeps solving PoW puzzles. If a puzzle is successfully solved, the node generates a new block and broadcasts it. The receiving thread processes messages received from other peer nodes to synchronize the blockchain. If a node receives a new block, it validates the block and appends the valid new block to the local blockchain.
+	
+	\subsection {Mining Thread}
+	Nodes generate new blocks with the algorithm \ref{alblockgeneration}. Initially, the basic mining difficulty is $p_0$ when there is only one valid block in an epoch. 
+	
+	Each node adaptively adjusts the mining difficulty of the current epoch according to the blocks in the previous epoch before mining. If the blocks in the previous epoch are full and the number of concurrent blocks in the previous epoch has not reached the maximum number of concurrent blocks, the number of blocks is doubled and the mining difficulty of the next epoch decreases (line 2-3). If the blocks in the previous epoch are empty and the number of concurrent blocks in the previous epoch is greater than $1$, the number of blocks halves and the mining difficulty of the next epoch increases (line 4-5). Otherwise, the blockchain grows in parallel, and the mining difficulty is the same as in the previous epoch (line 7).
+	
+	\begin{algorithm} 
+		\SetCommentSty{text}
+		
+		\caption{Adaptive Block Generation} \label{alblockgeneration}
+		\KwIn {Basic mining difficulty: $p_{0}$, \\
+			BIDs in the previous epoch: $\mathcal{B}=\{B_1,B_2,...,B_{2^k}\}$,\\
+			Number of blocks in the previous epoch: $2^k$,\\
+			Txs for the current epoch: $\mathcal{T}=\{tx_1 ,tx_2 ,...,tx_n \}$ }
+		\KwOut{New Blocks}
+		$\bar{B}=\Call{AverageSize}{\mathcal{B}}$\\
+		\uIf{ $\bar{B}>\alpha _{u} \left\|B\right\|$ $\&\&$ $2^{k}<2^{k_{max}}$}
+		{     $k \gets k+1$ 
+			\tcp*[h]{Blockchain expands, and mining difficulty decreases}
+		}
+		\uElseIf{$\bar{B}<\alpha _{d} \left\|B\right\| \&\&$ $2^{k}>1$}
+		{    $k \gets k-1$  	
+			\tcp*[h]{Blockchain shrinks, and mining difficulty increases}}
+		\Else
+		{ 
+			$p \gets 2^{k} p_{0}$\tcp*[h]{Blockchain grows in parallel, and mining difficulty remains unchanged}\\
+		}
+		$B.predecessors \gets \Call{PredecessorsHash}{\mathcal{B}} $ \\
+		$B.root \gets \Call {MerkleRoot}{\mathcal{B}}$\\
+		$B.tx \gets \Call {MerkleTree}{\mathcal{T}}$\tcp*[h]{Raw Merkle tree}\\
+		\Call {Mining }{$B, p,k$} 
+	\end{algorithm}        
+	
+	\begin{procedure} \label{proMining}
+		\SetCommentSty{text}
+		\caption{Mining($B, p$)}  
+		$d \gets log_{2}\frac{1}{p}$\\
+		$nonce \gets \Call{NewNonce}{ }$\\
+		$Btemp \gets \Call {CreatSemiBlock}{B,ChainParams}$ \\
+		\tcp*[h]{Construct template block with Params for PoW but no valid nonce}
+		$BID \gets \Call{Hash}{Btemp,nonce}$\\
+		\While {$BID$ has less than $d$ leading zeros $\&\&$ \\ \quad !$\Call{ShutdownRequested}{ }$} 
+		{ $nonce \gets \Call{IncrementNonce}{nonce}$     \tcp*[h]{Changing nonce}
+			$BID \gets \Call{Hash}{Btemp,nonce}$
+		}
+		\If{$BID$ has $d$ leading zeros }
+		{ $B.bid \gets$ $BID$ \\
+			$B.locator \gets$ last $k$ bits of $BID$ \\
+			\tcp*[h]{\textit{locator} indicates the subchain of the block}\\
+			$B.detx \gets \Call {DedupTx}{B.tx , locator}$\\ 
+			\tcp*[h]{Deduplicate txs in $B.tx$ based on \textit{locator}}\\
+			$newB \gets \Call{BlockAssembler}{B,Btemp,nonce}$ \\
+			\tcp*[h]{Assemble the prepared params and generate the new block}\\
+			$\Call{ProcessBlock}{newB}$
+		}
+	\end{procedure}        
+	
+	
+	Procedure \ref{proMining} describes the mining process. The mining difficulty $p$ corresponds to the hash of the PoW puzzle with $log_{2}\frac{1}{p}$ leading zeros. The prepared new block information $Btemp$ and $nonce$ are the inputs to the hash function $\Call{Hash}{ }$.  $\Call{IncrementNonce}{ } $ continuously changes $nonce$ to compute new hash $BID$ until $BID$ has more than $log_{2}\frac{1}{p}$ leading zeros if the stop mining request $\Call{ShutdownRequested}{ }$ is not received (line 4-7). If a BID has no less than $log_{2}\frac{1}{p}$ leading zeros, the last $k$ bits of the BID are used as a \textit{locator} to determine the parent blocks of the new block.
+	$\Call{DedupTx}{ }$ deletes the transactions in raw Merkle tree whose last $k$ bits is different from \textit{locator}. $\Call{BlockAssembler}{ }$ assembles the block after removing duplicate transactions and $nonce$ to generate a new block $newB$ (line 12). $\Call{ProcessBlock}{ }$ appends $newB$ to the blockchain based on its previous blocks and \textit{locator}.
+	
+	
+	\subsection {Receiving Thread}
+	Nodes process the received block as shown in Procedure \ref{propprob}.  A received block can be valid only if all its previous blocks of the block are valid. Nodes request previous blocks that are not available locally from their peer nodes with $\Call{RequestPeers}{ }$ and process them with $\Call{ProcessBlock}{ }$ (line 1-7).
+	
+	\begin{procedure}\label{propprob}
+		\SetCommentSty{text}
+		\caption{ProcessBlock($B$)} 
+		\ForEach { $B' \in B.predecessors$}{
+			\If {$B' \notin G$}  { 
+				$\Call{RequestPeers}{B'}$ \\
+				\lIf{$!\Call{ProcessBlock}{B'}$}{ \\
+					\textbf{Return} False}
+			}
+		}    
+		$ n \gets\Call{CountUpper}{B.predecessors}$ \\ \tcp*[h]{Number of blocks in the previous epoch}\\
+		$size \gets \Call{SizeUpper}{B.predecessors}/ n$ \\ \tcp*[h]{Average block size of previous epoch}	\\
+		$state \gets \Call{StateUpper}{size}\qquad$  \tcp*[h]{Blockchain state}	\\		       
+		\eIf {$\Call{CheckPoW}{B,state, n} \&\& \Call{CheckTx}{B}$}
+		{      \tcp*[h]{Validate the PoW and the txs of the block}\\
+			\tcp*[h]{Append validated block to blockchain}\\
+			\eIf{$state$=shrink}
+			{
+				$l \gets log_{2} n -1$\\
+				\For {$ B1, B2 \in B.predecessors$}{
+					\lIf{the last $l$ bit of $ B1 .bid$ = the last $l$ bit of $ B2 .bid$ = $B.locator$}
+					{   $B.parent1 \gets B1 $\\
+						$B.parent2 \gets B2$
+					}
+				}
+			}
+			{\tcp*[h]{Blockchain expands or grows in parallel}\\
+				$l \gets log_{2} n $\\
+				\For { each $ B1 \in B.predecessors$}{
+					\lIf{the last $l$ bit of $ B1 .bid$= $B.locator$}
+					{  $B.parent1 \gets B1 $}		      
+				}
+				$B.parent2 \gets$ NULL
+			}      
+			$G \gets G\cup B$ \tcp*[h]{Update the local blockchain}\\
+			\textbf{Return} $G$	
+		}
+		{
+			\textbf{Return} False
+		}      	
+	\end{procedure}
+	
+	For each unprocessed block, a node first determines the state of the block according to the average block size in the previous epoch, and determines the mining difficulty of the block according to the state and the number of blocks in the previous epoch (line 8-10). 
+	Then, $\Call{CheckPoW}{ } $ validates the proof of work of the new block and $\Call{CheckTx}{ }$ validates the transactions of the block. If any invalid, block processing aborts and returns False. Otherwise, the block is appended to the local blockchain. 
+	
+	Each valid block has two pointers to its parent blocks. If the blockchain shrinks,  the two parent blocks are blocks in the previous epoch with the same last bits of BIDs as the processing block's locator. The two pointers of the block point to the two parent blocks, respectively (line 12-17). If the blockchain expands or grows in parallel, each block has only one pointer to its unique parent block (line 19-22). The other pointer is a null pointer (line 23). Finally, the node updates its local block set (line 25) after appending the block to its local blockchain.
+	
+	
+	\subsection{Handling Inconsistent Blockchain Views}
+	Every time a new block is generated or a new block is received, the node's local blockchain graph changes. 
+	The node determines the mining power of the blockchain views included in the updated blockchain graph through Algorithm \ref{prohand}, and further determines the authoritative blockchain with the most mining power.
+	
+	
+	\begin{algorithm}\label{prohand}
+		\SetCommentSty{text}
+		\SetKwInput{KwInput}{Input}        % Set the Input
+		\SetKwInput{KwOutput}{Output}       % set the Output
+		\KwIn {Received blockchain graph $G$}
+		\KwOut{Authoritative blockchain $\theta$}
+		\caption{Handling inconsistent blockchain views ($G$)}
+		$S \gets \varnothing$ \\
+		\tcp*[h]{Collect all valid sibling groups to \(S\)} \\
+		\ForEach { $B \in G$}{
+			$s \gets \Call{SiblingGroup}{B}$ \\
+			$S.\Call{Append}{s}$
+		}
+		
+		\tcp*[h]{Initialize weights of each sibling groups} \\
+		\ForEach { $s \in S$}{
+			$W(s) \gets 0$
+		}
+		\tcp*[h]{Calculate weights of all sibling groups} \\
+		\ForEach { $B \in G$}{
+			\ForEach { $s \in S$}{
+				\ForEach{$v \in \Call{SubviewsBeginWith}{s}$}{
+					\If{$B \in v$}{
+						$W(s) \gets W(s)+ \Call{Miningpower}{B}$ \\
+						\KwSty{break}
+					}
+				}
+			}
+		}
+		\tcp*[h]{Find the authoritative blockchain} \\
+		$s \gets \Call{SiblingGroup}{B^0}$ \tcp*[h]{$B^0$ is the genesis block}\\
+		$\theta \gets \varnothing$ \\
+		$\theta.\Call{Append}{s}$ \label{alg:goto_childsubgroup} \\
+		\uIf{ $\Call{ ChildSiblingGroups}{s} = \varnothing$ }
+		{
+			\KwRet $s$ \\
+		}
+		\Else
+		{
+			Update $s \gets \mathop{\arg\max}\limits_{s'\in \Call{ ChildSiblingGroups}{s} } W(s')$\\
+			%$\theta=A\cup s$
+			Go to line \ref{alg:goto_childsubgroup}
+		}
+	\end{algorithm}
+	
+	
+	Blocks with the same predecessor are \textit{siblings}. 
+	The $2^k$ siblings whose mining difficulty is $\frac{1}{2^kp}$ and the last $k$ bits of their BIDs are different form a \textit{sibling group}, where $k=0,1,2 ,...k_{max}$.  Algorithm \ref{prohand} first finds all sibling groups in the blockchain graph (line 2-5). 
+	Let \textit{subview} of a sibling group $s$ denote a sequence of sibling groups beginning with $s$ and following the predecessors-children relationship to the end of the blockchain. Function $\Call{ SubviewsBeginWith}{s}$ is used to find all subviews that begin with $s$. If the predecessors of a sibling group $s'$ all belong to $s$, then $s'$ is the child sibling group of $s$. Function $\Call{SubviewsBeginWith}{s}$ is used to find child sibling groups of $s$. 
+	The mining power of each block is contributed to all subviews that contain it (line 9-18).
+	Similar to GHOST, line 22-27 follows a path from the genesis block and select the sibling group leading to the heaviest subview at each fork. All selected sibling groups construct the authoritative blockchain $\theta$ (line 21).
+	
+	\begin{algoproc}
+		\SetCommentSty{text}
+		\SetAlgorithmName{Function}{List of functions}
+		
+		\tcp*[h]{Function to find all subviews that begin with $s$}\\
+		\SetKwFunction{FMain}{$\Call{SubviewsBeginWith}{s}$}
+		\SetKwFunction{FSum}{Sum}
+		\SetKwFunction{FSub}{Sub}
+		\SetKwProg{Fn}{Function}{:}{\KwRet \(V\)}
+		\caption{Subviews Begin with}
+		\Fn{\FMain }{
+			$V \gets \varnothing $ \\
+			\eIf{ \(\Call{ ChildSiblingGroups}{s} = \varnothing\) }
+			{
+				\(v \gets \Call{ConstructSubview}{s}\) \\
+				\(V \gets V.\Call{Append}{v}\) \\
+				\KwRet{$V$} \\
+			}
+			{
+				\ForEach{\(c\in\Call{ ChildSiblingGroups}{s}\)}{
+					\ForEach{\(v \in \Call{SubviewsBeginWith}{c}\)}{
+						\(V.\Call{Append}{v.\Call{Append}{s}}\)
+					}
+				}
+			}
+		}
+	\end{algoproc}
+	
+	\begin{algoproc}
+		\SetCommentSty{text}
+		\SetAlgorithmName{Function}{}{List of functions}
+		\caption{Child Sibling Groups}
+		% \TitleOfAlgo{title}
+		\tcp*[h]{Function to find child sibling groups}\\
+		\SetKwFunction{FMain}{$\Call{ ChildSiblingGroups}{s}$}
+		\SetKwFunction{FSum}{Sum}
+		\SetKwFunction{FSub}{Sub}
+		\SetKwProg{Fn}{Function}{:}{\KwRet \(C\)}
+		\Fn{\FMain }{
+			$C \gets \varnothing $ \\
+			\ForEach{\(s' \in S\)}{
+				\ForEach{\(B' \in s'\)}{
+					\ForEach{\(B \in s\)}{
+						\If{$B \in B'$.predecessors}{
+							\(C.\Call{Append}{s'}\)
+						}
+					}
+				}
+			}
+		}
+	\end{algoproc}
+	
+	\section{Security Analysis } \label{secsecurity}
+	\subsection {Safety}
+	Safety means all honest users have a consistent blockchain view. Similar to Nakamoto protocol, the blockchain in our scheme is $T-consistent$ \cite{pass2017analysis}. Honest nodes agree on the blocks on the blockchain except for unconfirmed blocks in the last $T$ epochs of the blockchain. 
+	
+	Our proposed scheme applies a variant of GHOST rule whereby the sum of the weighted mining power of blocks determines the authoritative blockchain. Because the sum of the weighted mining power of all blocks in an epoch of a blockchain view is $\frac{1}{p}$, if these blocks are considered as a whole, our authoritative blockchain selection rule is equivalent to the original GHOST rule \cite{sompolinsky2015secure}. Therefore, the security properties of the GHOST rule and the proofs are also applicable to our scheme. 
+	
+	\begin{proposition}[ Convergence of History] \label{Proposition0}
+		For any block $B$, it is either abandoned or adopted by all nodes at the earliest time $\psi_B$. Then, $\Pr(	\psi_B<\infty)$ and $E (\psi_B)<\infty$. In other words, each block is eventually either fully adopted or fully abandoned.
+	\end{proposition}
+	\begin{proof}%\renewcommand{\qedsymbol}{}
+		The underlying network is  synchronous. If a node broadcasts a block at time $t_0$, all nodes in the network will receive the block at or before $t_0 + \delta$. Assume that at time $t$ block $B$ is neither abandoned or adopted by all nodes. If the next new block is generated between $t+\delta$ and $t+2\delta$, and no other block is generated until time $t+3\delta$. This event is denoted as $\varepsilon_t$. 
+		Since no new blocks are generated, all nodes learn all existing blocks between time $t$ and $t+\delta$.  The two blockchain views that nodes are extending simultaneously must be two subviews of the same mining power after a fork on the blockchain. 
+		A new block is generated so that ties for the two blockchain views are broken, and all nodes learn it after another $\delta$ time. Therefore, the nodes switch to one of the blockchain views. Honest nodes generate blocks with constant mining power, and block generation follows an exponential distribution. $\Pr(\varepsilon_t)$ is independent of $t$ and uniformly (in $t$) lower bounded by a positive number \cite{sompolinsky2015secure}. The expected time for the first $\varepsilon_t$ to occur for the first time is finite. Thus, $t$ is upper bounded. $\Pr(	\psi_B<\infty)$ and $E (\psi_B)<	\infty$.
+	\end{proof}
+	
+	We next demonstrate that our proposed mining power weighted GHOST rule is resistant to 50\% attacks. Even with a small block generation interval, the probability of an accepted block changing to be abandoned after a sufficiently long time is negligible. 
+	
+	Assume the block generation rate of honest nodes is $\lambda_h$, and the growth rate of authoritative blockchain is $\beta$. The block generation rate of adversary nodes is $q \cdot \lambda_h$. Assume that adversary nodes can contribute their mining power in a blockchain view, so the growth rate of the adversary-generated blockchain view is $q \cdot \lambda_h$. When $\beta \leq q \cdot \lambda_h$,  50\% attacks will definitely succeed. Thus, $q < \frac{\beta}{\lambda_h}$ is necessary to resist 50\% attacks.
+	When $\beta > q \cdot \lambda_h$, the probability of successful 50\% attacks decreases exponentially and will eventually fail if the time is long enough. 
+	
+	\begin{proposition}[Resistant to 50\% Attacks] \label{Proposition1}
+		Assume the growth rate of the adversary-generated blockchain view is $q \lambda_h$, where $0\leq q <1$, and block $B$ is generated at time $Gen(B)$ and is on the authoritative blockchain at $Gen(B) +\tau$. Then, the probability that block $B$ is not on the authoritative blockchain sometime after $Gen(B) +\tau$ goes to zero as $\tau$ goes to infinity.
+		
+	\end{proposition}
+	\begin{proof}
+		According to Proposition \ref{Proposition0}, $Gen(B) +\tau \leq \psi_B$.  The probability that block $B$ has either been abandoned or adopted by all honest nodes goes to $1$ as $\tau$ goes to infinity. 
+		In the former case, $B$ is abandoned by all nodes, so it must not be on the authoritative blockchain. 
+		In the latter case, blocks are now built on subviews rooted at $B$ at a rate of $\lambda_h$, which is higher than $q\lambda_h$.
+		Therefore, as $\tau $ grows, the gap between the sum of the weighted mining power of honest nodes’ subviews rooted at $B$ and that of the adversary view increases. According to the law of large numbers, the probability of 50\% attacks succeeding at some time in the future is negligible.
+	\end{proof}
+
+ 
+ 
+
+\bibliographystyle{IEEEtran}
+
+\bibliography{cite}
+\end{document}
