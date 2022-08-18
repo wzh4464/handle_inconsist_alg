@@ -1,7 +1,7 @@
 % @Author: WU Zihan
 % @Date:   2022-03-25 22:18:55
 % @Last Modified by:   WU Zihan
-% @Last Modified time: 2022-08-12 22:00:25
+% @Last Modified time: 2022-08-18 20:10:08
 \documentclass[10pt]{article}
 
 
@@ -41,16 +41,17 @@
 
 \makeatletter
 \newenvironment{algoproc}
-  {\renewcommand{\algorithmcfname}{Function}%
-   \begin{algorithm}
-   \long\def\@caption##1[##2]##3{%
-     \par
-     \begingroup\@parboxrestore
-     \if@minipage\@setminipage\fi
-     \normalsize \@makecaption{\AlCapSty{\AlCapFnt\algorithmcfname}}{\ignorespaces ##3}%
-     \par\endgroup
-   }}
-  {\end{algorithm}}
+{\renewcommand{\algorithmcfname}{Function}%
+	\begin{algorithm}
+		\addtocounter{algocf}{-1}
+		\long\def\@caption##1[##2]##3{%
+		\par
+		\begingroup\@parboxrestore
+		\if@minipage\@setminipage\fi
+		\normalsize \@makecaption{\AlCapSty{\AlCapFnt\algorithmcfname}}{\ignorespaces ##3}%
+		\par\endgroup
+		}}
+	{\end{algorithm}}
 \makeatother
 
 \begin{document}
@@ -66,9 +67,9 @@
 	$S \gets \varnothing$ \\
 	\ForEach { $B \in G$}{
 		$s \gets \Call{Sibling}{B}$ \\
-			$S.\Call{Append}{s}$ 
+		$S.\Call{Append}{s}$
 	}
-	
+
 	\tcp*[h]{Initialize weights of each  sibling groups} \\
 	\ForEach { $s \in S$}{
 		$W(s) \gets 0$
@@ -104,7 +105,7 @@
 \begin{algoproc}
 	\SetCommentSty{text}
 	\SetAlgorithmName{Function}{List of functions}
-	
+
 	\tcp*[h]{Function to find all subviews that begin with $s$}\\
 	\SetKwFunction{FMain}{$\Call{SubviewsBeginWith}{s}$}
 	\SetKwFunction{FSum}{Sum}
@@ -152,7 +153,12 @@
 		}
 	}
 \end{algoproc}
- 
 
+\begin{algorithm}
+	\caption{1}
+\end{algorithm}
+% \bibliographystyle{IEEEtran}
+% % argument is your BibTeX string definitions and bibliography database(s)
+% \bibliography{bibtex}
 
 \end{document}
