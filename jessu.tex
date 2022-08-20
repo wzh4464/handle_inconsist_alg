@@ -1,7 +1,7 @@
 % @Author: WU Zihan
 % @Date:   2022-03-25 22:18:55
 % @Last Modified by:   WU Zihan
-% @Last Modified time: 2022-08-18 20:10:08
+% @Last Modified time: 2022-08-20 13:06:44
 \documentclass[10pt]{article}
 
 
@@ -87,18 +87,26 @@
 	}
 	\tcp*[h]{Find the authoritative view} \\
 	$s \gets \Call{Siblings}{B^0}$ \tcp*[h]{$B^0$ stands for genesis block}\\
-	$A_v \gets \varnothing$ \\
-	$A_v.\Call{Append}{s}$ \label{alg:goto_childsubgroup} \\
-	\uIf{ $\Call{ ChildSiblingGroups}{s} = \varnothing$ }
-	{
-		\KwRet $s$ \\
-	}
-	\Else
+	$A_v \gets \{s\}$ \\
+	% $A_v.\Call{Append}{s}$ \\
+
+	\While{ $\Call{ ChildSiblingGroups}{s} \neq \varnothing$ }
 	{
 		Update $s \gets \mathop{\arg\max}\limits_{s'\in \Call{ ChildSiblingGroups}{s} } W(s')$\\
-		% $A_v.\Call{Append}{s}$ \\
-		Go to line \ref{alg:goto_childsubgroup}
+		$A_v.\Call{Append}{s}$ 
 	}
+	\KwRet $s$ 
+
+	% \uIf{ $\Call{ ChildSiblingGroups}{s} = \varnothing$ }
+	% {
+	% 	\KwRet $s$ \\
+	% }
+	% \Else
+	% {
+	% 	Update $s \gets \mathop{\arg\max}\limits_{s'\in \Call{ ChildSiblingGroups}{s} } W(s')$\\
+	% 	% $A_v.\Call{Append}{s}$ \\
+	% 	% Go to line \ref{alg:goto_childsubgroup}
+	% }
 \end{algorithm}
 
 
@@ -154,9 +162,7 @@
 	}
 \end{algoproc}
 
-\begin{algorithm}
-	\caption{1}
-\end{algorithm}
+
 % \bibliographystyle{IEEEtran}
 % % argument is your BibTeX string definitions and bibliography database(s)
 % \bibliography{bibtex}
